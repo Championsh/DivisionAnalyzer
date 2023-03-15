@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis.Testing;
+using Microsoft.CodeAnalysis.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Threading.Tasks;
@@ -32,7 +32,7 @@ class Program
     static void Main()
     {
         int a = 0;
-        int b = 5 / a;
+        int b = [|5 / a|];
     }
 }
 ";
@@ -50,8 +50,9 @@ class Program
 {
     static void Main()
     {
-        int a = 2;
-        int x = [|12 / (14 - 7 * a)|];
+        int a = 2 / 1;
+        int b = 3 * 2;
+        int x = [|12 / (12 - a * b)|];
     }
 }
 ";
