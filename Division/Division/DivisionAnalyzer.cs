@@ -1,4 +1,4 @@
-﻿using Division;
+using Division;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -7,7 +7,9 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Reflection.Metadata;
 using System.Threading;
+using System.Xml.Linq;
 
 namespace Division
 {
@@ -59,7 +61,6 @@ namespace Division
                 var literal = denominator as LiteralExpressionSyntax;
                 var res = literal.Token.ValueText;
 
-                //Console.WriteLine("I GOT THE VALUE, its: {0}", res);
                 return res;
             }
             else if (denominator.IsKind(SyntaxKind.AddExpression))
@@ -68,22 +69,33 @@ namespace Division
 
                 string valLeft = GetConstValue(addExpression.Left, context);
                 string valRight = GetConstValue(addExpression.Right, context);
-                string res = valLeft + valRight;
+                string res = "0";
 
                 double val1 = 0;
                 double val2 = 0;
                 if (double.TryParse(valLeft, out val1)
                         && double.TryParse(valRight, out val2))
                     res = (val1 + val2).ToString();
-                //Console.WriteLine("I GOT THE VALUE, its: {0}", res);
+
                 return res;
             }
             else if (denominator.IsKind(SyntaxKind.SubtractExpression))
             {
                 var subExpression = denominator as BinaryExpressionSyntax;
-                var res = GetConstValue(subExpression.Left, context)
-                       == GetConstValue(subExpression.Right, context) ? "0" : "1";
-                //Console.WriteLine("I GOT THE VALUE, its: {0}", res);
+
+                string valLeft = GetConstValue(subExpression.Left, context);
+                string valRight = GetConstValue(subExpression.Right, context);
+                string res = "0";
+
+                if (valLeft == valRight)
+                    return res;
+
+                double val1 = 0;
+                double val2 = 0;
+                if (double.TryParse(valLeft, out val1)
+                        && double.TryParse(valRight, out val2))
+                    res = (val1 - val2).ToString();
+
                 return res;
             }
             else if (denominator.IsKind(SyntaxKind.MultiplyExpression))
@@ -92,7 +104,7 @@ namespace Division
 
                 string valLeft = GetConstValue(multExpression.Left, context);
                 string valRight = GetConstValue(multExpression.Right, context);
-                string res = "null";
+                string res = "0";
 
                 double val1 = 0;
                 double val2 = 0;
@@ -100,35 +112,69 @@ namespace Division
                         && double.TryParse(valRight, out val2))
                     res = (val1 * val2).ToString();
 
-                //Console.WriteLine("I GOT THE VALUE, its: {0}", res);
+                return res;
+            }
+            else if (denominator.IsKind(SyntaxKind.DivideExpression))
+            {
+                var divExpression = denominator as BinaryExpressionSyntax;
+
+                string valLeft = GetConstValue(divExpression.Left, context);
+                string valRight = GetConstValue(divExpression.Right, context);
+                string res = "null";
+
+                if (valRight == "0" || valRight == "null")
+                    return res;
+
+                double val1 = 0;
+                double val2 = 0;
+                if (double.TryParse(valLeft, out val1)
+                        && double.TryParse(valRight, out val2))
+                    res = (val1 / val2).ToString();
+
                 return res;
             }
             else if (denominator.IsKind(SyntaxKind.ParenthesizedExpression))
             {
                 var parenthExpression = denominator as ParenthesizedExpressionSyntax;
-                var mas = parenthExpression.DescendantNodes().OfType<ExpressionSyntax>();
-                foreach (var elem in mas)
-                {
-                    //Console.WriteLine("ELEM in MAS is: {0}", elem);
-                    var tmp_res = GetConstValue(elem, context);
-                    if (tmp_res == "0" || tmp_res == "null")
-                    {
-                        return "null";
-                    }
-                    else
-                        return "Passed";
-                }
-                return "null";
+                
+                var expres = parenthExpression.Expression;
+                var res = GetConstValue(expres, context);
+
+                return res;
             }
             else if (denominator.IsKind(SyntaxKind.IdentifierName))
             {
                 var Variable = denominator as IdentifierNameSyntax;
-                var res = Variable.Identifier.Value;
-                return res.ToString();
+                var res = Variable.Identifier;
+                string value = "null";
+
+                var rootNode = context.Node.AncestorsAndSelf().OfType<BlockSyntax>().First();
+                var declareNodes = rootNode.ChildNodes();
+                
+                foreach (var declare in declareNodes)
+                {
+                    var localDeclare = declare as LocalDeclarationStatementSyntax;
+
+                    foreach (var variable in localDeclare.Declaration.Variables)
+                    {
+                        var ident = variable.Identifier;
+                        if (ident.ToString() != res.ToString())
+                            continue;
+
+                        value = "null";
+                        var init = variable.Initializer;
+                        if (init == null)
+                            break;
+
+                        value = GetConstValue(init.Value, context);
+                        break;
+                    }
+                }
+
+                return value;
             }
             else
             {
-                //Console.WriteLine("I GOT THE VALUE, its: {0}", "null");
                 return "null";
             }
         }
